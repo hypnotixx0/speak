@@ -5,93 +5,41 @@
 <title>Webhook Messenger</title>
 
 <style>
-    body {
-        background: #1e1f26;
-        font-family: "Inter", sans-serif;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        margin: 0;
-        color: #eee;
-    }
+    body { background:#1e1f26; font-family:"Inter",sans-serif; display:flex;
+           justify-content:center; align-items:center; height:100vh; margin:0; color:#eee; }
 
     .card {
-        background: #2a2c35;
-        width: 420px;
-        padding: 25px;
-        border-radius: 15px;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-        border: 1px solid #3a3d47;
+        background:#2a2c35; width:450px; padding:25px; border-radius:15px;
+        box-shadow:0 8px 20px rgba(0,0,0,0.3);
+        border:1px solid #3a3d47;
     }
 
-    h1 {
-        margin-top: 0;
-        font-size: 22px;
-        text-align: center;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-    }
+    h1 { margin-top:0; font-size:22px; text-align:center; font-weight:600; }
 
-    .input-group {
-        margin-bottom: 15px;
-    }
+    .input-group { margin-bottom:15px; }
+    label { font-size:14px; margin-bottom:5px; display:block; color:#b8b9c0; }
 
-    label {
-        font-size: 14px;
-        margin-bottom: 5px;
-        display: block;
-        color: #b8b9c0;
+    input, textarea, select {
+        width:100%; background:#1b1c22; border:1px solid #3d3f49; padding:10px;
+        border-radius:6px; font-size:14px; color:#eee; outline:none; transition:0.2s;
     }
-
-    input, textarea {
-        width: 100%;
-        background: #1b1c22;
-        border: 1px solid #3d3f49;
-        padding: 10px;
-        border-radius: 6px;
-        font-size: 14px;
-        color: #eee;
-        outline: none;
-        transition: 0.2s;
+    input:focus, textarea:focus, select:focus {
+        border-color:#686dff; box-shadow:0 0 0 2px rgba(120,125,255,0.3);
     }
-
-    input:focus, textarea:focus {
-        border-color: #686dff;
-        box-shadow: 0 0 0 2px rgba(120,125,255,0.3);
-    }
-
-    textarea {
-        height: 140px;
-        resize: vertical;
-        font-family: "JetBrains Mono", monospace;
-    }
+    textarea { height:140px; resize:vertical; font-family:"JetBrains Mono",monospace; }
 
     button {
-        width: 100%;
-        padding: 12px;
-        background: linear-gradient(135deg, #686dff, #8f92ff);
-        border: none;
-        border-radius: 8px;
-        color: white;
-        font-size: 15px;
-        cursor: pointer;
-        transition: 0.25s;
-        font-weight: 600;
-        letter-spacing: 0.3px;
+        width:100%; padding:12px;
+        background:linear-gradient(135deg,#686dff,#8f92ff);
+        border:none; border-radius:8px; color:white; font-size:15px; cursor:pointer;
+        transition:0.25s; font-weight:600;
     }
-
     button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 15px rgba(120,125,255,0.35);
+        transform:translateY(-2px);
+        box-shadow:0 6px 15px rgba(120,125,255,0.35);
     }
 
-    .status {
-        text-align: center;
-        margin-top: 10px;
-        font-size: 14px;
-        height: 20px;
-    }
+    .status { text-align:center; margin-top:10px; font-size:14px; height:20px; }
 </style>
 </head>
 
@@ -101,54 +49,77 @@
 
     <div class="input-group">
         <label>Webhook URL</label>
-        <input id="url" placeholder="https://discord.com/api/webhooks/1440109033687089364/KbL25rVScEgOanTeMgK3DDC5WwE8GDMeZAIUEFzBVXQPnV-guMA8S0jFEb3KhWvc6OJU">
+        <input id="url" placeholder="https://example.com/webhook">
+    </div>
+
+    <div class="input-group">
+        <label>Send Mode</label>
+        <select id="mode">
+            <option value="single">Single Message</option>
+            <option value="bulk">Bulk Test Messages (Safe Mode)</option>
+        </select>
+    </div>
+
+    <div class="input-group" id="bulkSettings" style="display:none;">
+        <label>Number of Messages</label>
+        <input id="count" type="number" min="1" max="50" value="5">
+        <label>Delay Between Messages (ms)</label>
+        <input id="delay" type="number" min="200" value="500">
     </div>
 
     <div class="input-group">
         <label>Message</label>
-        <textarea id="msg" placeholder="Type your message... supports code blocks!"></textarea>
+        <textarea id="msg" placeholder="Type your message..."></textarea>
     </div>
 
-    <button onclick="send()">Send Message</button>
-
+    <button onclick="send()">Send</button>
     <div class="status" id="status"></div>
 </div>
 
 <script>
-async function send() {
-    const url = document.getElementById('url').value.trim();
-    const content = document.getElementById('msg').value;
-
-    if (!url) {
-        setStatus("❗ Enter a webhook URL", "red");
-        return;
-    }
-
-    const payload = { content };
-
-    try {
-        const res = await fetch(url, {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(payload)
-        });
-
-        if (res.ok) setStatus("✅ Message sent!", "lightgreen");
-        else setStatus("⚠️ Webhook error (" + res.status + ")", "orange");
-
-    } catch (err) {
-        setStatus("❌ Network error", "red");
-    }
-}
+document.getElementById('mode').addEventListener('change', e => {
+    document.getElementById('bulkSettings').style.display =
+        e.target.value === "bulk" ? "block" : "none";
+});
 
 function setStatus(text, color) {
     const el = document.getElementById("status");
     el.style.color = color;
     el.textContent = text;
+    setTimeout(() => el.textContent = "", 3000);
+}
 
-    setTimeout(() => {
-        el.textContent = "";
-    }, 3000);
+async function sendSingle(url, content) {
+    return fetch(url, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ content })
+    });
+}
+
+async function send() {
+    const url = document.getElementById("url").value.trim();
+    const mode = document.getElementById("mode").value;
+    const content = document.getElementById("msg").value;
+
+    if (!url) return setStatus("❗ Enter a webhook URL", "red");
+
+    if (mode === "single") {
+        let res = await sendSingle(url, content);
+        return setStatus(res.ok ? "✅ Sent!" : "⚠️ Error", res.ok ? "lightgreen" : "orange");
+    }
+
+    // Bulk safe test mode
+    const count = parseInt(document.getElementById("count").value);
+    const delay = parseInt(document.getElementById("delay").value);
+
+    for (let i = 1; i <= count; i++) {
+        await sendSingle(url, content + ` (${i}/${count})`);
+        setStatus(`📤 Sent ${i}/${count}`, "lightgreen");
+        await new Promise(res => setTimeout(res, delay));
+    }
+
+    setStatus("✅ Bulk test complete", "lightgreen");
 }
 </script>
 </body>
