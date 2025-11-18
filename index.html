@@ -2,19 +2,22 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Webhook Messenger</title>
+<title>Webhook Messenger Pro</title>
 
 <style>
     body { background:#1e1f26; font-family:"Inter",sans-serif; display:flex;
            justify-content:center; align-items:center; height:100vh; margin:0; color:#eee; }
 
     .card {
-        background:#2a2c35; width:450px; padding:25px; border-radius:15px;
+        background:#2a2c35; width:650px; padding:25px; border-radius:15px;
         box-shadow:0 8px 20px rgba(0,0,0,0.3);
         border:1px solid #3a3d47;
     }
 
     h1 { margin-top:0; font-size:22px; text-align:center; font-weight:600; }
+
+    .row { display:flex; gap:10px; }
+    .col { flex:1; }
 
     .input-group { margin-bottom:15px; }
     label { font-size:14px; margin-bottom:5px; display:block; color:#b8b9c0; }
@@ -26,6 +29,7 @@
     input:focus, textarea:focus, select:focus {
         border-color:#686dff; box-shadow:0 0 0 2px rgba(120,125,255,0.3);
     }
+
     textarea { height:140px; resize:vertical; font-family:"JetBrains Mono",monospace; }
 
     button {
@@ -40,36 +44,58 @@
     }
 
     .status { text-align:center; margin-top:10px; font-size:14px; height:20px; }
+
+    /* Markdown preview */
+    #preview {
+        height:140px; overflow:auto; padding:10px;
+        background:#1b1c22; border:1px solid #3d3f49;
+        border-radius:6px; font-size:14px; color:#ddd;
+    }
+    #preview h1,#preview h2,#preview h3{margin:5px 0;}
+    #preview code { background:#333;padding:2px 4px;border-radius:4px;}
+    #preview pre { background:#333;padding:10px;border-radius:6px;overflow:auto;}
+
+    img.preview-img { max-width:100%; margin-top:10px; border-radius:8px; }
 </style>
 </head>
 
 <body>
 <div class="card">
-    <h1>Webhook Messenger</h1>
+    <h1>Webhook Messenger Pro</h1>
+
+    <!-- Saved Webhooks -->
+    <div class="row">
+        <div class="col">
+            <div class="input-group">
+                <label>Webhook URL</label>
+                <input id="url" placeholder="https://example.com/webhook">
+            </div>
+        </div>
+        <div class="col" style="max-width:200px;">
+            <div class="input-group">
+                <label>Saved URLs</label>
+                <select id="saved" onchange="loadSaved()"></select>
+            </div>
+        </div>
+    </div>
+
+    <button onclick="saveWebhook()">💾 Save Webhook</button>
+    <br><br>
 
     <div class="input-group">
-        <label>Webhook URL</label>
-        <input id="url" placeholder="https://example.com/webhook">
+        <label>Message (Markdown supported)</label>
+        <textarea id="msg" oninput="updatePreview()"></textarea>
     </div>
 
     <div class="input-group">
-        <label>Send Mode</label>
-        <select id="mode">
-            <option value="single">Single Message</option>
-            <option value="bulk">Bulk Test Messages (Safe Mode)</option>
-        </select>
+        <label>Image URL (optional)</label>
+        <input id="imgUrl" placeholder="https://example.com/image.png" oninput="updatePreview()">
     </div>
 
-    <div class="input-group" id="bulkSettings" style="display:none;">
-        <label>Number of Messages</label>
-        <input id="count" type="number" min="1" max="50" value="5">
-        <label>Delay Between Messages (ms)</label>
-        <input id="delay" type="number" min="200" value="500">
-    </div>
-
+    <!-- Markdown Preview -->
     <div class="input-group">
-        <label>Message</label>
-        <textarea id="msg" placeholder="Type your message..."></textarea>
+        <label>Preview</label>
+        <div id="preview"></div>
     </div>
 
     <button onclick="send()">Send</button>
@@ -77,50 +103,101 @@
 </div>
 
 <script>
-document.getElementById('mode').addEventListener('change', e => {
-    document.getElementById('bulkSettings').style.display =
-        e.target.value === "bulk" ? "block" : "none";
-});
+// ---------- Webhook Saving ----------
+function loadSavedList() {
+    const saved = JSON.parse(localStorage.getItem("webhooks") || "[]");
+    const select = document.getElementById("saved");
+    select.innerHTML = "<option value=''>Choose...</option>";
+    saved.forEach(url => {
+        const opt = document.createElement("option");
+        opt.value = url;
+        opt.textContent = url;
+        select.appendChild(opt);
+    });
+}
+loadSavedList();
+
+function saveWebhook() {
+    const url = document.getElementById("url").value.trim();
+    if (!url) return alert("Enter a webhook URL first.");
+    const saved = JSON.parse(localStorage.getItem("webhooks") || "[]");
+    if (!saved.includes(url)) saved.push(url);
+    localStorage.setItem("webhooks", JSON.stringify(saved));
+    loadSavedList();
+    setStatus("💾 Saved!", "lightgreen");
+}
+function loadSaved() {
+    const v = document.getElementById("saved").value;
+    if (v) document.getElementById("url").value = v;
+}
+
+// ---------- Markdown Renderer (simple) ----------
+function markdown(text) {
+    return text
+        .replace(/```(.*?)```/gs, "<pre><code>$1</code></pre>")
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/^### (.*$)/gim, "<h3>$1</h3>")
+        .replace(/^## (.*$)/gim, "<h2>$1</h2>")
+        .replace(/^# (.*$)/gim, "<h1>$1</h1>")
+        .replace(/\*\*(.*)\*\*/gim, "<b>$1</b>")
+        .replace(/\*(.*)\*/gim, "<i>$1</i>")
+        .replace(/\n/g, "<br>");
+}
+
+function updatePreview() {
+    const text = document.getElementById("msg").value;
+    const img = document.getElementById("imgUrl").value.trim();
+    const prev = document.getElementById("preview");
+
+    prev.innerHTML = markdown(text);
+
+    if (img) {
+        const el = document.createElement("img");
+        el.src = img;
+        el.className = "preview-img";
+        prev.appendChild(el);
+    }
+}
+
+// ---------- Sending ----------
+async function send() {
+    const url = document.getElementById("url").value.trim();
+    const content = document.getElementById("msg").value;
+    const img = document.getElementById("imgUrl").value.trim();
+
+    if (!url) return setStatus("❗ Enter webhook URL", "red");
+
+    const payload = { content };
+
+    if (img) {
+        payload.embeds = [
+            {
+                image: { url: img }
+            }
+        ];
+    }
+
+    try {
+        const res = await fetch(url, {
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body:JSON.stringify(payload)
+        });
+        if (res.ok) setStatus("✅ Sent!", "lightgreen");
+        else setStatus("⚠️ Error " + res.status, "orange");
+    } catch {
+        setStatus("❌ Network error", "red");
+    }
+}
 
 function setStatus(text, color) {
     const el = document.getElementById("status");
     el.style.color = color;
     el.textContent = text;
-    setTimeout(() => el.textContent = "", 3000);
+    setTimeout(()=> el.textContent="", 3000);
 }
 
-async function sendSingle(url, content) {
-    return fetch(url, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ content })
-    });
-}
-
-async function send() {
-    const url = document.getElementById("url").value.trim();
-    const mode = document.getElementById("mode").value;
-    const content = document.getElementById("msg").value;
-
-    if (!url) return setStatus("❗ Enter a webhook URL", "red");
-
-    if (mode === "single") {
-        let res = await sendSingle(url, content);
-        return setStatus(res.ok ? "✅ Sent!" : "⚠️ Error", res.ok ? "lightgreen" : "orange");
-    }
-
-    // Bulk safe test mode
-    const count = parseInt(document.getElementById("count").value);
-    const delay = parseInt(document.getElementById("delay").value);
-
-    for (let i = 1; i <= count; i++) {
-        await sendSingle(url, content + ` (${i}/${count})`);
-        setStatus(`📤 Sent ${i}/${count}`, "lightgreen");
-        await new Promise(res => setTimeout(res, delay));
-    }
-
-    setStatus("✅ Bulk test complete", "lightgreen");
-}
+updatePreview(); // initialize preview
 </script>
 </body>
 </html>
